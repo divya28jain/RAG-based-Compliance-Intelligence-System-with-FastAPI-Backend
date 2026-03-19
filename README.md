@@ -41,5 +41,11 @@ An AI-powered compliance assistant that allows users to upload legal/compliance 
 
 ### 1. Clone repo
 ```bash
-git clone <your-repo-link>
+git clone <https://github.com/divya28jain/RAG-based-Compliance-Intelligence-System-with-FastAPI-Backend.git>
 cd rag-compliance-assistant
+
+
+## 👩‍💻 Author
+
+Divya Jain  
+B.Tech CSE Student  
