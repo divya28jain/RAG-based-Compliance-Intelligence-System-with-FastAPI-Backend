@@ -42,8 +42,11 @@ An AI-powered compliance assistant that allows users to upload legal/compliance 
 ### 1. Clone repo
 ```bash
 git clone <https://github.com/divya28jain/RAG-based-Compliance-Intelligence-System-with-FastAPI-Backend.git>
+#### To start Backend
 cd rag-compliance-assistant
-
+uvicorn app.main:app --reload
+#### To start Frontend
+streamlit run ui.py
 
 ## 👩‍💻 Author
 

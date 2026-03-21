@@ -1,6 +1,7 @@
 from fastapi import FastAPI, UploadFile, File
 import shutil
 import os
+import time
 
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -10,11 +11,10 @@ from langchain_ollama import ChatOllama
 
 app = FastAPI()
 
-# Global variables
 vectorstore = None
 retriever = None
 
-# 🔥 Risk Detection Function
+
 def detect_risks(text):
     risk_keywords = ["penalty", "fine", "violation", "deadline", "audit"]
     found_risks = []
@@ -26,39 +26,32 @@ def detect_risks(text):
     return found_risks
 
 
-# 🏠 Home route
 @app.get("/")
 def home():
     return {"message": "AI Compliance Assistant Running 🚀"}
 
 
-# 📄 Upload PDF
 @app.post("/upload")
 async def upload_file(file: UploadFile = File(...)):
     global vectorstore, retriever
 
-    # Save file
     file_path = f"data/{file.filename}"
     os.makedirs("data", exist_ok=True)
 
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    # Load PDF
     loader = PyPDFLoader(file_path)
     docs = loader.load()
 
-    # Split
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=500,
         chunk_overlap=50
     )
     chunks = splitter.split_documents(docs)
 
-    # Embeddings
     embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
 
-    # Vector DB
     vectorstore = FAISS.from_documents(chunks, embeddings)
     retriever = vectorstore.as_retriever(search_kwargs={"k": 5})
 
@@ -69,7 +62,6 @@ async def upload_file(file: UploadFile = File(...)):
     }
 
 
-# ❓ Ask Question
 @app.post("/ask")
 def ask_question(query: str):
     global retriever
@@ -77,16 +69,15 @@ def ask_question(query: str):
     if retriever is None:
         return {"error": "Please upload a document first"}
 
-    # Retrieve docs
+    start = time.time()
+
     retrieved_docs = retriever.invoke(query)
 
     if not retrieved_docs:
         return {"answer": "No relevant information found"}
 
-    # Combine context
     context = "\n\n".join([doc.page_content for doc in retrieved_docs])
 
-    # LLM (TinyLlama - works on low RAM)
     llm = ChatOllama(model="tinyllama")
 
     prompt = f"""
@@ -110,15 +101,18 @@ Answer:
     response = llm.invoke(prompt)
     answer = response.content
 
-    # 🔥 Risk detection
     risks = detect_risks(context)
+
+    end = time.time()
 
     return {
         "answer": answer,
         "risks_detected": risks,
+        "response_time": round(end - start, 2),
         "source_chunks": [doc.page_content[:200] for doc in retrieved_docs]
     }
-    
+
+
 @app.get("/summary")
 def summarize_document():
     global vectorstore
@@ -126,14 +120,14 @@ def summarize_document():
     if vectorstore is None:
         return {"error": "No document uploaded yet."}
 
-    # 🔥 Create retriever
+    start = time.time()
+
     retriever = vectorstore.as_retriever(search_kwargs={"k": 10})
 
     docs = retriever.invoke("Summarize the important points of this document")
 
     context = "\n\n".join([doc.page_content for doc in docs])
 
-    # 🔥 ADD THIS (missing part)
     llm = ChatOllama(model="tinyllama")
 
     prompt = f"""
@@ -157,6 +151,9 @@ Risks:
 
     response = llm.invoke(prompt)
 
+    end = time.time()
+
     return {
-        "summary": response.content
+        "summary": response.content,
+        "response_time": round(end - start, 2)
     }
